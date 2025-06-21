@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Animated Weather App</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      background-size: cover;
+      background-position: center;
+      transition: background 0.5s ease-in-out;
+    }
+    .container {
+      max-width: 600px;
+      margin: 100px auto;
+      padding: 20px;
+      border-radius: 20px;
+      position: relative;
+      overflow: hidden;
+      background-color: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(10px);
+      transition: background-color 0.3s ease-in-out;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+    .container:hover {
+      animation: glow 4s infinite linear;
+    }
+    @keyframes glow {
+      0% { box-shadow: 0 0 10px #fff; }
+      25% { box-shadow: 0 0 20px #0ff; }
+      50% { box-shadow: 0 0 30px #0f0; }
+      75% { box-shadow: 0 0 20px #ff0; }
+      100% { box-shadow: 0 0 10px #fff; }
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px;
+      border: none;
+      border-radius: 10px;
+    }
+    button {
+      background: #333;
+      color: #fff;
+      cursor: pointer;
+    }
+    #weather, #chartContainer {
+      margin-top: 20px;
+      text-align: left;
+    }
+    canvas#weatherChart {
+      width: 100%;
+      height: 300px;
+    }
+    #animationCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="animationCanvas"></canvas>
+  <div class="container">
+    <h1>Advanced Weather App</h1>
+    <input type="text" id="city" placeholder="Enter city name">
+    <button onclick="getWeather()">Get Weather</button>
+    <div id="weather"></div>
+    <div id="chartContainer">
+      <canvas id="weatherChart"></canvas>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const weatherContainer = document.getElementById("weather");
+    const canvas = document.getElementById("animationCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let animationType = '';
+
+    function rainAnimation() {
+      const drops = [];
+      for (let i = 0; i < 100; i++) {
+        drops.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, l: Math.random() * 20, xs: -4 + Math.random() * 4 + 2, ys: Math.random() * 10 + 10 });
+      }
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'rgba(174,194,224,0.5)';
+        ctx.lineWidth = 1;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < drops.length; i++) {
+          const d = drops[i];
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x + d.xs, d.y + d.ys);
+          ctx.stroke();
+          d.x += d.xs;
+          d.y += d.ys;
+          if (d.x > canvas.width || d.y > canvas.height) {
+            d.x = Math.random() * canvas.width;
+            d.y = -20;
+          }
+        }
+        if (animationType === 'rain') requestAnimationFrame(draw);
+      }
+      draw();
+    }
+
+    function sunAnimation() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const sunX = canvas.width / 2;
+      const sunY = canvas.height / 3;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 80, 0, 2 * Math.PI);
+      ctx.fillStyle = 'yellow';
+      ctx.fill();
+    }
+
+    function setBackground(condition) {
+      let url;
+      switch (condition) {
+        case 'Rain':
+          url = 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=1920&q=80';
+          animationType = 'rain';
+          rainAnimation();
+          break;
+        case 'Clear':
+          url = 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80';
+          animationType = 'sun';
+          sunAnimation();
+          break;
+        default:
+          animationType = '';
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          url = 'https://images.unsplash.com/photo-1505489304215-0b5d9edb5f11?auto=format&fit=crop&w=1920&q=80';
+      }
+      document.body.style.backgroundImage = `url('${url}')`;
+    }
+
+    async function getWeather() {
+      const city = document.getElementById("city").value;
+      const apiKey = 'YOUR-API-KEY-HERE';
+      const currentWeatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`;
+      const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${apiKey}&units=metric`;
+
+      const [currentRes, forecastRes] = await Promise.all([
+        fetch(currentWeatherUrl),
+        fetch(forecastUrl)
+      ]);
+
+      const currentData = await currentRes.json();
+      const forecastData = await forecastRes.json();
+
+      if (currentData.cod === 200) {
+        const condition = currentData.weather[0].main;
+        setBackground(condition);
+
+        const temps = forecastData.list.slice(0, 8).map(f => f.main.temp);
+        const labels = forecastData.list.slice(0, 8).map(f => new Date(f.dt_txt).getHours() + ':00');
+
+        const ctxChart = document.getElementById('weatherChart').getContext('2d');
+        new Chart(ctxChart, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: temps,
+              borderColor: 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: false
+              }
+            }
+          }
+        });
+
+        weatherContainer.innerHTML = `
+          <h2>${currentData.name}, ${currentData.sys.country}</h2>
+          <p><strong>Temperature:</strong> ${currentData.main.temp} °C</p>
+          <p><strong>Temperature:</strong> ${(currentData.main.temp * 9/5 + 32).toFixed(2)} °F</p>
+          <p><strong>Temperature:</strong> ${(currentData.main.temp + 273.15).toFixed(2)} K</p>
+          <p><strong>Feels Like:</strong> ${currentData.main.feels_like} °C</p>
+          <p><strong>Humidity:</strong> ${currentData.main.humidity}%</p>
+          <p><strong>Pressure:</strong> ${currentData.main.pressure} hPa</p>
+          <p><strong>Condition:</strong> ${currentData.weather[0].description}</p>
+          <p><strong>Wind Speed:</strong> ${currentData.wind.speed} m/s</p>
+        `;
+      } else {
+        weatherContainer.innerHTML = `<p>City not found. Try again.</p>`;
+      }
+    }
+  </script>
+</body>
+</html>
